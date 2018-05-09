@@ -1,0 +1,379 @@
+---
+cidr_networks:
+  container: 10.1.0.0/22
+  tunnel: 10.1.4.0/22
+  storage: 10.1.8.0/22
+#  octavia: 10.1.16.0/22
+
+used_ips:
+  - "10.1.0.1,10.1.0.50"
+  - "10.1.4.1,10.1.4.50"
+  - "10.1.8.1,10.1.8.50"
+  - "10.1.12.1,10.1.12.50"
+#  - "10.1.16.1,10.1.16.50"
+
+global_overrides:
+  internal_lb_vip_address: 10.1.0.10
+  #
+  # The below domain name must resolve to an IP address
+  # in the CIDR specified in haproxy_keepalived_external_vip_cidr.
+  # If using different protocols (https/http) for the public/internal
+  # endpoints the two addresses must be different.
+  #
+  external_lb_vip_address: cloud.dev.scale360.net
+  tunnel_bridge: "br-vxlan"
+  management_bridge: "br-mgmt"
+  provider_networks:
+    - network:
+        container_bridge: "br-mgmt"
+        container_type: "veth"
+        container_interface: "eth1"
+        ip_from_q: "container"
+        type: "raw"
+        group_binds:
+          - all_containers
+          - hosts
+        is_container_address: true
+        is_ssh_address: true
+    - network:
+        container_bridge: "br-vxlan"
+        container_type: "veth"
+        container_interface: "eth10"
+        ip_from_q: "tunnel"
+        type: "vxlan"
+        range: "1:1000"
+        net_name: "vxlan"
+        group_binds:
+          - neutron_linuxbridge_agent
+    - network:
+        container_bridge: "br-vlan"
+        container_type: "veth"
+        container_interface: "eth12"
+        host_bind_override: "eth12"
+        type: "flat"
+        net_name: "flat"
+        group_binds:
+          - neutron_linuxbridge_agent
+    - network:
+        container_bridge: "br-vlan"
+        container_type: "veth"
+        container_interface: "eth11"
+        type: "vlan"
+        range: "1:1"
+        net_name: "vlan"
+        group_binds:
+          - neutron_linuxbridge_agent
+    - network:
+        container_bridge: "br-storage"
+        container_type: "veth"
+        container_interface: "eth2"
+        ip_from_q: "storage"
+        type: "raw"
+        group_binds:
+          - glance_api
+          - cinder_api
+          - cinder_volume
+          - nova_compute
+#    - network:
+#        container_bridge: "br-lbaas"
+#        container_type: "veth"
+#        container_interface: "eth14"
+#        host_bind_override: "eth14"
+#        ip_from_q: "octavia"
+#        type: "flat"
+#        net_name: "octavia"
+#        group_binds:
+#          - neutron_linuxbridge_agent
+#          - octavia-worker
+#          - octavia-housekeeping
+#          - octavia-health-manager
+
+###
+### Infrastructure
+###
+
+# galera, memcache, rabbitmq, utility
+shared-infra_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# repository (apt cache, python packages, etc)
+repo-infra_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# load balancer
+# Ideally the load balancer should not use the Infrastructure hosts.
+# Dedicated hardware is best for improved performance and security.
+haproxy_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# rsyslog server
+log_hosts:
+  log1:
+    ip: 10.1.0.11
+
+###
+### OpenStack
+###
+
+# keystone
+identity_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# cinder api services
+storage-infra_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# glance
+# The settings here are repeated for each infra host.
+# They could instead be applied as global settings in
+# user_variables, but are left here to illustrate that
+# each container could have different storage targets.
+image_hosts:
+  infra1:
+    ip: 10.1.0.10
+    # container_vars:
+    #   limit_container_types: glance
+    #   glance_nfs_client:
+    #     - server: "172.29.244.15"
+    #       remote_path: "/images"
+    #       local_path: "/var/lib/glance/images"
+    #       type: "nfs"
+    #       options: "_netdev,auto"
+  # infra2:
+  #   ip: 10.1.0.11
+  #   container_vars:
+  #     limit_container_types: glance
+  #     glance_nfs_client:
+  #       - server: "172.29.244.15"
+  #         remote_path: "/images"
+  #         local_path: "/var/lib/glance/images"
+  #         type: "nfs"
+  #         options: "_netdev,auto"
+  # infra3:
+  #   ip: 10.1.0.12
+  #   container_vars:
+  #     limit_container_types: glance
+  #     glance_nfs_client:
+  #       - server: "172.29.244.15"
+  #         remote_path: "/images"
+  #         local_path: "/var/lib/glance/images"
+  #         type: "nfs"
+  #         options: "_netdev,auto"
+
+# nova api, conductor, etc services
+compute-infra_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# heat
+orchestration_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# horizon
+dashboard_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# neutron server, agents (L3, etc)
+network_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# ceilometer (telemetry data collection)
+metering-infra_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# aodh (telemetry alarm service)
+metering-alarm_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# gnocchi (telemetry metrics storage)
+metrics_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# nova hypervisors
+compute_hosts:
+  compute1:
+    ip: 10.1.0.31
+  compute2:
+    ip: 10.1.0.32
+  compute3:
+    ip: 10.1.0.33
+#  compute4:
+#    ip: 10.1.0.34
+
+# ceilometer compute agent (telemetry data collection)
+metering-compute_hosts:
+  compute1:
+    ip: 10.1.0.31
+  compute2:
+    ip: 10.1.0.32
+  compute3:
+    ip: 10.1.0.33
+#  compute4:
+#    ip: 10.1.0.34
+
+# designate
+dnsaas_hosts:
+  infra1:
+    ip: 10.1.0.10
+  # infra2:
+  #   ip: 10.1.0.11
+  # infra3:
+  #   ip: 10.1.0.12
+
+# cinder volume hosts (NFS-backed)
+# The settings here are repeated for each infra host.
+# They could instead be applied as global settings in
+# user_variables, but are left here to illustrate that
+# each container could have different storage targets.
+storage_hosts:
+  # infra1:
+  #   ip: 10.1.0.10
+  #   container_vars:
+  #     cinder_backends:
+  #       limit_container_types: cinder_volume
+  #       nfs_volume:
+  #         volume_backend_name: NFS_VOLUME1
+  #         volume_driver: cinder.volume.drivers.nfs.NfsDriver
+  #         nfs_mount_options: "rsize=65535,wsize=65535,timeo=1200,actimeo=120"
+  #         nfs_shares_config: /etc/cinder/nfs_shares
+  #         shares:
+  #           - ip: "172.29.244.15"
+  #             share: "/vol/cinder"
+  # infra2:
+  #   ip: 10.1.0.11
+  #   container_vars:
+  #     cinder_backends:
+  #       limit_container_types: cinder_volume
+  #       nfs_volume:
+  #         volume_backend_name: NFS_VOLUME1
+  #         volume_driver: cinder.volume.drivers.nfs.NfsDriver
+  #         nfs_mount_options: "rsize=65535,wsize=65535,timeo=1200,actimeo=120"
+  #         nfs_shares_config: /etc/cinder/nfs_shares
+  #         shares:
+  #           - ip: "172.29.244.15"
+  #             share: "/vol/cinder"
+  # infra3:
+  #   ip: 10.1.0.12
+  #   container_vars:
+  #     cinder_backends:
+  #       limit_container_types: cinder_volume
+  #       nfs_volume:
+  #         volume_backend_name: NFS_VOLUME1
+  #         volume_driver: cinder.volume.drivers.nfs.NfsDriver
+  #         nfs_mount_options: "rsize=65535,wsize=65535,timeo=1200,actimeo=120"
+  #         nfs_shares_config: /etc/cinder/nfs_shares
+  #         shares:
+  #           - ip: "172.29.244.15"
+  #             share: "/vol/cinder"
+#  storage0:
+#    ip: 10.1.0.20
+#    container_vars:
+#      cinder_storage_availability_zone: ZONE_C
+#      cinder_default_availability_zone: ZONE_C
+#      cinder_backends:
+#        limit_container_types: cinder_volume
+#        lvm_c:
+#          volume_group: cinder-volumes
+#          volume_driver: cinder.volume.drivers.lvm.LVMVolumeDriver
+#          volume_backend_name: LVM_iSCSI0
+#          iscsi_ip_address: "10.1.8.10"
+#  storage1:
+#    ip: 10.1.0.21
+#    container_vars:
+#      cinder_storage_availability_zone: ZONE_A
+#      cinder_default_availability_zone: ZONE_A
+#      cinder_backends:
+#        limit_container_types: cinder_volume
+#        lvm_a:
+#          volume_group: cinder-volumes
+#          volume_driver: cinder.volume.drivers.lvm.LVMVolumeDriver
+#          volume_backend_name: LVM_iSCSI1
+#          iscsi_ip_address: "10.1.8.11"
+#  storage2:
+#    ip: 10.1.0.22
+#    container_vars:
+#      cinder_storage_availability_zone: ZONE_B
+#      cinder_default_availability_zone: ZONE_B
+#      cinder_backends:
+#        limit_container_types: cinder_volume
+#        lvm_b:
+#          volume_group: cinder-volumes
+#          volume_driver: cinder.volume.drivers.lvm.LVMVolumeDriver
+#          volume_backend_name: LVM_iSCSI2
+#          iscsi_ip_address: "10.1.8.12"
+  storage1:
+    ip: 10.1.0.20
+    container_vars:
+      cinder_storage_availability_zone: ZONE_A
+      cinder_default_availability_zone: ZONE_A
+      cinder_backends:
+        limit_container_types: cinder_volume
+        magnet:
+          volume_group: cinder-volumes
+          volume_driver: cinder.volume.drivers.lvm.LVMVolumeDriver
+          volume_backend_name: LVM_SATA
+        ssd:
+          volume_group: cinder-ssd-volumes
+          volume_driver: cinder.volume.drivers.lvm.LVMVolumeDriver
+          volume_backend_name: LVM_SSD
+
+
