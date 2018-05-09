@@ -21,23 +21,28 @@ Howto
    # echo '8021q' >> /etc/modules
    
  3.Configure SSH keys
-   Infrastructure Node to All Node
-  
+   All Node sudo no password
+   sudo -i
+   # visudo
+   # search %sudo
+      devops  ALL:(ALL) NOPASSWD: ALL
+   Permit Root Login   
+   # vi /etc/ssh/sshd_config
+    PermitRootLogin yes
+   
+   # systemctl restart sshd
+   # ssh-keygen
+   # ssh-copy-id root@xxx.xxx.xxx.xxx
 
  4.Install the source and dependencies
+  # cd /opt
+  # git clone project
   # cd openstack-ansible/scripts/
   # ./bootstrap-ansible.sh 
  
   
  5.Playbooks to install OpenStack
   # vi /etc/openstack_deploy/openstack_user_config.yml
-  # openstack-ansible setup-hosts.yml  
+  # openstack-ansible setup-hosts.yml --limit 'all:!log1'  
   # openstack-ansible setup-infrastructure.yml 
   # openstack-ansible setup-openstack.yml 
-
-
-
-
-
-
-
